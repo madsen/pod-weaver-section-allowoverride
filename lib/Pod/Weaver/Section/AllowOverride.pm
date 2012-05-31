@@ -14,25 +14,131 @@ package Pod::Weaver::Section::AllowOverride;
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See either the
 # GNU General Public License or the Artistic License for more details.
 #
-# ABSTRACT:
+# ABSTRACT: Allow POD to override a Pod::Weaver-provided section
 #---------------------------------------------------------------------
 
-use 5.008;
-use strict;
-use warnings;
+use 5.010;
+use Moose;
+with qw(Pod::Weaver::Role::Transformer Pod::Weaver::Role::Section);
 
 our $VERSION = '0.01';
 # This file is part of {{$dist}} {{$dist_version}} ({{$date}})
 
 #=====================================================================
 
+=attr header_re
+
+This regular expression is used to select the section you want to
+override.  It's matched against the section name from the C<=head1>
+line.  The default is an exact match with the name of this plugin.
+(e.g. if the plugin name is AUTHOR, the default would be C<^AUTHOR$>)
+
+=cut
+
+has header_re => (
+  is      => 'ro',
+  isa     => 'Str',
+  lazy    => 1,
+  default => sub {'^' . quotemeta(shift->plugin_name) . '$' },
+);
+
+has _override_with => (
+  is   => 'rw',
+  does => 'Pod::Elemental::Node',
+);
+
+#---------------------------------------------------------------------
+# Return a sub that matches a node against header_re:
+
+sub _section_matcher
+{
+  my $self = shift;
+
+  my $header_re = $self->header_re;
+  $header_re    = qr/$header_re/;
+
+  return sub {
+    my $node = shift;
+
+    return ($node->can('command') and
+            $node->command eq 'head1' and
+            $node->content =~ $header_re);
+  } # end sub
+} # end _section_matcher
+
+#---------------------------------------------------------------------
+# Look for a matching section in the original POD, and remove it temporarily:
+
+sub transform_document
+{
+  my ($self, $document) = @_;
+
+  my $match    = $self->_section_matcher;
+  my $children = $document->children;
+
+  for my $i (0 .. $#$children) {
+    if ($match->( $children->[$i] )) {
+      # Found matching section.  Store & remove it:
+      $self->_override_with( splice @$children, $i, 1 );
+      last;
+    } # end if this is the section we're looking for
+  } # end for $i indexing @$children
+} # end transform_document
+
+#---------------------------------------------------------------------
+# If we found a section in the original POD,
+# use it instead of the one now in the document:
+
+sub weave_section
+{
+  my ($self, $document, $input) = @_;
+
+  my $override = $self->_override_with;
+  return unless $override;
+
+  my $children = $document->children;
+
+  if (@$children and $self->_section_matcher->( $children->[-1] )) {
+    pop @$children;
+  } else {
+    $self->log(["No previous %s section to override", $override->content]);
+  }
+
+  push @$children, $override;
+} # end weave_section
+
 #=====================================================================
 # Package Return Value:
 
+__PACKAGE__->meta->make_immutable;
+no Moose;
 1;
-
-__END__
 
 =head1 SYNOPSIS
 
-  use Pod::Weaver::Section::AllowOverride;
+  [Authors]
+  [AllowOverride]
+  header_re = ^AUTHORS?$
+
+=head1 DESCRIPTION
+
+Sometimes, you might want to override a normally-generic section in
+one of your modules.  This section plugin replaces the preceding
+section with the corresponding section taken from your POD.
+
+Both the original section in your POD and the section provided by
+Pod::Weaver must match the C<header_re>.  Also, this plugin must
+immediately follow the section you want to replace.
+
+It's a similar idea to L<Pod::Weaver::Role::SectionReplacer>, except
+that it works the other way around.  SectionReplacer replaces the
+section from your POD with a section provided by Pod::Weaver.
+
+=head1 SEE ALSO
+
+L<Pod::Weaver::Role::SectionReplacer>,
+L<Pod::Weaver::PluginBundle::ReplaceBoilerplate>
+
+=for Pod::Coverage
+transform_document
+weave_section
