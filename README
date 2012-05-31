@@ -1,7 +1,9 @@
 Pod-Weaver-Section-AllowOverride version {{$version}}, released {{$date}}
 
 
-This module {{ die "needs a description (README.md too)" }}.
+This section plugin for Pod::Weaver will allow you to override a
+section normally provided by Pod::Weaver with a custom version in your
+POD.
 
 
 
