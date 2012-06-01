@@ -124,7 +124,9 @@ no Moose;
 
 Sometimes, you might want to override a normally-generic section in
 one of your modules.  This section plugin replaces the preceding
-section with the corresponding section taken from your POD.
+section with the corresponding section taken from your POD (if it
+exists).  If your POD doesn't contain a matching section, then the
+Pod::Weaver-provided one will be used.
 
 Both the original section in your POD and the section provided by
 Pod::Weaver must match the C<header_re>.  Also, this plugin must
