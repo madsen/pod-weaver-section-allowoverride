@@ -21,8 +21,11 @@ use 5.010;
 use Moose;
 with qw(Pod::Weaver::Role::Transformer Pod::Weaver::Role::Section);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 # This file is part of {{$dist}} {{$dist_version}} ({{$date}})
+
+use namespace::autoclean;
+use Moose::Util::TypeConstraints;
 
 #=====================================================================
 
@@ -40,6 +43,37 @@ has header_re => (
   isa     => 'Str',
   lazy    => 1,
   default => sub {'^' . quotemeta(shift->plugin_name) . '$' },
+);
+
+=attr action
+
+This controls what to do when both a Pod::Weaver-provided section and
+a POD-provided section are found.  It must be one of the following values:
+
+=begin :list
+
+= replace
+Replace the Pod::Weaver-provided section with the POD-provided one.
+(This is the default.)
+
+= prepend
+Place the POD-provided section at the beginning of the
+Pod::Weaver-provided one.  The POD-provided header is used, and the
+Pod::Weaver-provided header is discarded.
+
+= append
+Place the POD-provided section at the end of the
+Pod::Weaver-provided one.  The POD-provided header is used, and the
+Pod::Weaver-provided header is discarded.
+
+=end :list
+
+=cut
+
+has action => (
+  is  => 'ro',
+  isa => enum([ qw(replace prepend append) ]),
+  default => 'replace',
 );
 
 has _override_with => (
@@ -97,21 +131,31 @@ sub weave_section
   return unless $override;
 
   my $children = $document->children;
+  my $prev;
 
   if (@$children and $self->_section_matcher->( $children->[-1] )) {
-    pop @$children;
+    $prev = pop @$children;
   } else {
     $self->log(["No previous %s section to override", $override->content]);
   }
 
   push @$children, $override;
+
+  given ($self->action) {
+    when ('replace') { }        # nothing more to do
+    break unless $prev;
+
+    my $prev_content = $prev->children;
+
+    when ('prepend') { push    @{ $override->children }, @$prev_content }
+    when ('append')  { unshift @{ $override->children }, @$prev_content }
+  } # end given $self->action
 } # end weave_section
 
 #=====================================================================
 # Package Return Value:
 
 __PACKAGE__->meta->make_immutable;
-no Moose;
 1;
 
 =head1 SYNOPSIS
