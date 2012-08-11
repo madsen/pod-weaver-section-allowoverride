@@ -1,5 +1,9 @@
 Revision history for Pod-Weaver-Section-AllowOverride
 
+0.03   NOT
+	- Use Pod::Elemental::MakeSelector instead of building a
+	  selector by hand
+
 0.02   June 6, 2012
 	- Add the action attribute
 
