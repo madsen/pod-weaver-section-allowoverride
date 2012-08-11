@@ -1,6 +1,6 @@
 Revision history for Pod-Weaver-Section-AllowOverride
 
-0.03   NOT
+0.03   August 11, 2012
 	- Use Pod::Elemental::MakeSelector instead of building a
 	  selector by hand
 
