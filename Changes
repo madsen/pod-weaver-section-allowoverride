@@ -1,6 +1,6 @@
 Revision history for Pod-Weaver-Section-AllowOverride
 
-0.04   NOT
+0.04   January 5, 2013
 	- Add the match_anywhere attribute
 	- Add tests
 
