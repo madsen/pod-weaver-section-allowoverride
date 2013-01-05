@@ -19,6 +19,9 @@ use strict;
 use warnings;
 
 use Test::More 0.88;            # done_testing
+
+plan tests => 9;
+
 use File::Temp 0.19;            # newdir
 use File::Spec::Functions qw(catfile);
 
@@ -34,9 +37,16 @@ package Module_Name;
 END PERL
 
 #---------------------------------------------------------------------
-sub write_ini
+sub open_ini_for_writing
 {
   open(my $out, '>', catfile($tmpdir->dirname, 'weaver.ini')) or die $!;
+  return $out;
+} # end open_ini_for_writing
+
+#---------------------------------------------------------------------
+sub write_ini
+{
+  my $out = open_ini_for_writing;
 
   local $" = "\n";
 
@@ -51,6 +61,25 @@ END CONFIG
 
   close $out;
 } # end write_ini
+
+#---------------------------------------------------------------------
+sub write_ini2
+{
+  my $out = open_ini_for_writing;
+
+  local $" = "\n";
+
+  print $out <<"END CONFIG";
+[\@CorePrep]
+[Name]
+[Version]
+[Authors]
+[AllowOverride / VERSION]
+@_
+END CONFIG
+
+  close $out;
+} # end write_ini2
 
 #---------------------------------------------------------------------
 sub weave_pod
@@ -90,9 +119,17 @@ my $input_body = "This section is overridden.\n";
 my $input_head = "=head1 VERSION\n";
 my $input      = "$input_head\n$input_body";
 
+#---------------------------------------------------------------------
 $pod = weave_pod($input);
 
 like($pod, qr/$hRE\Q$input\E$fRE/, "VERSION overridden");
+
+#---------------------------------------------------------------------
+write_ini('match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE\Q$input\E$fRE/, "VERSION overridden (match_anywhere)");
 
 #---------------------------------------------------------------------
 write_ini('action = append');
@@ -104,6 +141,15 @@ like($pod, qr/$hRE \Q$input_head\E \s+
      "VERSION appended");
 
 #---------------------------------------------------------------------
+write_ini('action = append', 'match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE \Q$input_head\E \s+
+              \Q$default_version\E \s+ \Q$input_body\E $fRE/x,
+     "VERSION appended (match_anywhere)");
+
+#---------------------------------------------------------------------
 write_ini('action = prepend');
 
 $pod = weave_pod($input);
@@ -112,4 +158,39 @@ like($pod, qr/$hRE \Q$input_head\E \s+
               \Q$input_body\E \s+ \Q$default_version\E $fRE/x,
      "VERSION prepended");
 
+#---------------------------------------------------------------------
+write_ini('action = prepend', 'match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE \Q$input_head\E \s+
+              \Q$input_body\E \s+ \Q$default_version\E $fRE/x,
+     "VERSION prepended (match_anywhere)");
+
+#---------------------------------------------------------------------
+write_ini2('match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE\Q$input\E$fRE/, "VERSION overridden (not previous)");
+
+#---------------------------------------------------------------------
+write_ini2('action = append', 'match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE \Q$input_head\E \s+
+              \Q$default_version\E \s+ \Q$input_body\E $fRE/x,
+     "VERSION appended (not previous)");
+
+#---------------------------------------------------------------------
+write_ini2('action = prepend', 'match_anywhere = 1');
+
+$pod = weave_pod($input);
+
+like($pod, qr/$hRE \Q$input_head\E \s+
+              \Q$input_body\E \s+ \Q$default_version\E $fRE/x,
+     "VERSION prepended (not previous)");
+
+#---------------------------------------------------------------------
 done_testing;
