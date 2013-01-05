@@ -77,6 +77,25 @@ has action => (
   default => 'replace',
 );
 
+=attr match_anywhere
+
+By default, AllowOverride must immediately follow the section to be
+overriden in your F<weaver.ini>.  If you set C<match_anywhere> to a
+true value, then it can come anywhere after the section to be
+overriden (i.e. there can be other sections in between).
+AllowOverride will search backwards for a section matching
+C<header_re>, and die if there is no such section.
+
+This is useful if the section you want to override comes from a bundle.
+
+=cut
+
+has match_anywhere => (
+  is  => 'ro',
+  isa => 'Bool',
+  default => 0,
+);
+
 has _override_with => (
   is   => 'rw',
   does => 'Pod::Elemental::Node',
@@ -132,16 +151,28 @@ sub weave_section
   my $override = $self->_override_with;
   return unless $override;
 
+  my $section_matcher = $self->_section_matcher;
   my $children = $document->children;
   my $prev;
 
-  if (@$children and $self->_section_matcher->( $children->[-1] )) {
-    $prev = pop @$children;
+  if ($self->match_anywhere) {
+    my $pos = @$children;
+    while (1) {
+      $self->log_fatal(["No section matching /%s/", $self->header_re])
+          unless $pos--;
+      last if $section_matcher->( $children->[$pos] );
+    }
+    $prev = splice @$children, $pos, 1, $override;
   } else {
-    $self->log(["No previous %s section to override", $override->content]);
-  }
+    if (@$children and $section_matcher->( $children->[-1] )) {
+      $prev = pop @$children;
+    } else {
+      $self->log(["The previous section did not match /%s/, won't override it",
+                  $self->header_re]);
+    }
 
-  push @$children, $override;
+    push @$children, $override;
+  } # end else must override immediately preceding section
 
   given ($self->action) {
     when ('replace') { }        # nothing more to do
@@ -165,6 +196,8 @@ __PACKAGE__->meta->make_immutable;
   [Authors]
   [AllowOverride]
   header_re = ^AUTHORS?$
+  action    = replace ; this is the default
+  match_anywhere = 0  ; this is the default
 
 =head1 DESCRIPTION
 
@@ -176,7 +209,8 @@ Pod::Weaver-provided one will be used.
 
 Both the original section in your POD and the section provided by
 Pod::Weaver must match the C<header_re>.  Also, this plugin must
-immediately follow the section you want to replace.
+immediately follow the section you want to replace (unless you set
+C<match_anywhere> to a true value).
 
 It's a similar idea to L<Pod::Weaver::Role::SectionReplacer>, except
 that it works the other way around.  SectionReplacer replaces the
