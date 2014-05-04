@@ -21,7 +21,7 @@ use 5.010;
 use Moose;
 with qw(Pod::Weaver::Role::Transformer Pod::Weaver::Role::Section);
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 # This file is part of {{$dist}} {{$dist_version}} ({{$date}})
 
 use namespace::autoclean;
@@ -174,15 +174,17 @@ sub weave_section
     push @$children, $override;
   } # end else must override immediately preceding section
 
-  given ($self->action) {
-    when ('replace') { }        # nothing more to do
-    break unless $prev;
+  for my $action ($self->action) {
+    last if $action eq 'replace' or not $prev; # nothing more to do
 
     my $prev_content = $prev->children;
 
-    when ('prepend') { push    @{ $override->children }, @$prev_content }
-    when ('append')  { unshift @{ $override->children }, @$prev_content }
-  } # end given $self->action
+    if (     $action eq 'prepend') {
+      push    @{ $override->children }, @$prev_content
+    } elsif ($action eq 'append')  {
+      unshift @{ $override->children }, @$prev_content
+    }
+  } # end for $self->action
 } # end weave_section
 
 #=====================================================================
