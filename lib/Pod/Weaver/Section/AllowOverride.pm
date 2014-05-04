@@ -18,6 +18,7 @@ package Pod::Weaver::Section::AllowOverride;
 #---------------------------------------------------------------------
 
 use 5.010;
+use feature qw(:5.10);
 use Moose;
 with qw(Pod::Weaver::Role::Transformer Pod::Weaver::Role::Section);
 
