@@ -1,5 +1,7 @@
 Revision history for Pod-Weaver-Section-AllowOverride
 
+    - Added debug level log output. Implemented by Dave Rolsky. GitHub #2
+
 0.05   2014-05-05
 	- Don't use given/when, as Perl 5.18 marked it experimental
 
