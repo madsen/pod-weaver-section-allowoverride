@@ -134,10 +134,14 @@ sub transform_document
   for my $i (0 .. $#$children) {
     if ($match->( $children->[$i] )) {
       # Found matching section.  Store & remove it:
+      $self->log_debug(['found an existing section matching /%s/', $self->header_re]);
       $self->_override_with( splice @$children, $i, 1 );
       last;
     } # end if this is the section we're looking for
   } # end for $i indexing @$children
+  unless ($self->_override_with) {
+    $self->log_debug(['did not find an existing section matching /%s/', $self->header_re]);
+  }
 } # end transform_document
 
 #---------------------------------------------------------------------
@@ -175,13 +179,22 @@ sub weave_section
   } # end else must override immediately preceding section
 
   for my $action ($self->action) {
-    last if $action eq 'replace' or not $prev; # nothing more to do
+    if ($action eq 'replace' or not $prev) {
+      if (not $prev) {
+        $self->log_debug('did not generate an additional section matching ' . $self->header_re);
+      } else {
+        $self->log_debug('replacing generated section with the one already in the pod');
+      }
+      return; # nothing more to do
+    }
 
     my $prev_content = $prev->children;
 
     if (     $action eq 'prepend') {
+      $self->log_debug('prepending generated section with the one already in the pod');
       push    @{ $override->children }, @$prev_content
     } elsif ($action eq 'append')  {
+      $self->log_debug('appending generated section to the one already in the pod');
       unshift @{ $override->children }, @$prev_content
     }
   } # end for $self->action
